@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 include(cmake/pkg.cmake)
 
 find_package(Threads REQUIRED)
+set(protobuf_RC_FILEVERSION "0.0.0")
 
 set(protobuf-src-files
   # Protobuf light
@@ -96,7 +97,7 @@ if (MSVC)
   enable_language(RC)
   set(rc_flags "/l0x409")
   set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> ${rc_flags} <DEFINES> /fo<OBJECT> <SOURCE>")
-  configure_file(version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+  configure_file(cmake/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
   set(libprotobuf_rc_files ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
   set(protobuf-compile-options
     /bigobj
