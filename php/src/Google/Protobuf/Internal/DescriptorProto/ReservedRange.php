@@ -17,21 +17,21 @@ use Google\Protobuf\Internal\GPBUtil;
  *
  * Generated from protobuf message <code>google.protobuf.DescriptorProto.ReservedRange</code>
  */
-final class ReservedRange extends \Google\Protobuf\Internal\Message
+class ReservedRange extends \Google\Protobuf\Internal\Message
 {
     /**
      * Inclusive.
      *
      * Generated from protobuf field <code>optional int32 start = 1;</code>
      */
-    private $start = 0;
+    protected $start = 0;
     private $has_start = false;
     /**
      * Exclusive.
      *
      * Generated from protobuf field <code>optional int32 end = 2;</code>
      */
-    private $end = 0;
+    protected $end = 0;
     private $has_end = false;
 
     /**

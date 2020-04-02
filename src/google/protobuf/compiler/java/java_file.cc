@@ -76,6 +76,7 @@ struct FieldDescriptorCompare {
 typedef std::set<const FieldDescriptor*, FieldDescriptorCompare>
     FieldDescriptorSet;
 
+
 // Recursively searches the given message to collect extensions.
 // Returns true if all the extensions can be recognized. The extensions will be
 // appended in to the extensions parameter.
@@ -85,7 +86,9 @@ bool CollectExtensions(const Message& message, FieldDescriptorSet* extensions) {
   const Reflection* reflection = message.GetReflection();
 
   // There are unknown fields that could be extensions, thus this call fails.
-  if (reflection->GetUnknownFields(message).field_count() > 0) return false;
+  UnknownFieldSet unknown_fields;
+  unknown_fields.MergeFrom(reflection->GetUnknownFields(message));
+  if (unknown_fields.field_count() > 0) return false;
 
   std::vector<const FieldDescriptor*> fields;
   reflection->ListFields(message, &fields);
@@ -237,7 +240,8 @@ bool FileGenerator::Validate(std::string* error) {
   }
 
   // Print a warning if optimize_for = LITE_RUNTIME is used.
-  if (file_->options().optimize_for() == FileOptions::LITE_RUNTIME) {
+  if (file_->options().optimize_for() == FileOptions::LITE_RUNTIME &&
+      !options_.enforce_lite) {
     GOOGLE_LOG(WARNING)
         << "The optimize_for = LITE_RUNTIME option is no longer supported by "
         << "protobuf Java code generator and is ignored--protoc will always "
@@ -266,6 +270,7 @@ void FileGenerator::Generate(io::Printer* printer) {
   }
   PrintGeneratedAnnotation(
       printer, '$', options_.annotate_code ? classname_ + ".java.pb.meta" : "");
+
   printer->Print(
       "$deprecation$public final class $classname$ {\n"
       "  private $ctor$() {}\n",

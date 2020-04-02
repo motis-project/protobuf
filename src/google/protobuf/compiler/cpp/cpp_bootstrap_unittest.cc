@@ -44,6 +44,8 @@
 
 #include <map>
 
+#include <google/protobuf/testing/file.h>
+#include <google/protobuf/testing/file.h>
 #include <google/protobuf/compiler/cpp/cpp_helpers.h>
 #include <google/protobuf/compiler/cpp/cpp_generator.h>
 #include <google/protobuf/compiler/importer.h>
@@ -51,14 +53,11 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/stubs/strutil.h>
+#include <google/protobuf/testing/googletest.h>
+#include <gtest/gtest.h>
 #include <google/protobuf/stubs/substitute.h>
 #include <google/protobuf/stubs/map_util.h>
 #include <google/protobuf/stubs/stl_util.h>
-
-#include <google/protobuf/testing/file.h>
-#include <google/protobuf/testing/file.h>
-#include <google/protobuf/testing/googletest.h>
-#include <gtest/gtest.h>
 
 namespace google {
 namespace protobuf {
@@ -77,8 +76,8 @@ class MockErrorCollector : public MultiFileErrorCollector {
   // implements ErrorCollector ---------------------------------------
   void AddError(const std::string& filename, int line, int column,
                 const std::string& message) {
-    strings::SubstituteAndAppend(&text_, "$0:$1:$2: $3\n", filename, line,
-                                 column, message);
+    strings::SubstituteAndAppend(&text_, "$0:$1:$2: $3\n", filename, line, column,
+                              message);
   }
 };
 
@@ -158,7 +157,8 @@ TEST(BootstrapTest, GeneratedFilesMatch) {
     const FileDescriptor* file =
         importer.Import(file_parameter[0] + std::string(".proto"));
     ASSERT_TRUE(file != nullptr)
-        << "Can't import file " << file_parameter[0] + string(".proto") << "\n";
+        << "Can't import file " << file_parameter[0] + std::string(".proto")
+        << "\n";
     EXPECT_EQ("", error_collector.text_);
     CppGenerator generator;
     MockGeneratorContext context;
@@ -178,16 +178,16 @@ TEST(BootstrapTest, GeneratedFilesMatch) {
   }
 }
 
-//test Generate in cpp_generator.cc
-TEST(BootstrapTest, OptionNotExist)
-{
+// test Generate in cpp_generator.cc
+TEST(BootstrapTest, OptionNotExist) {
   cpp::CppGenerator generator;
   DescriptorPool pool;
-  GeneratorContext *generator_context = nullptr;
+  GeneratorContext* generator_context = nullptr;
   std::string parameter = "aaa";
-  string error;
-  ASSERT_FALSE(generator.Generate(pool.FindFileByName("google/protobuf/descriptor.proto"),
-                                  parameter, generator_context, &error));
+  std::string error;
+  ASSERT_FALSE(generator.Generate(
+      pool.FindFileByName("google/protobuf/descriptor.proto"), parameter,
+      generator_context, &error));
   EXPECT_EQ(error, "Unknown generator option: " + parameter);
 }
 

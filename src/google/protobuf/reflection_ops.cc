@@ -125,8 +125,16 @@ void ReflectionOps::Merge(const Message& from, Message* to) {
 #undef HANDLE_TYPE
 
           case FieldDescriptor::CPPTYPE_MESSAGE:
-            to_reflection->AddMessage(to, field)->MergeFrom(
-                from_reflection->GetRepeatedMessage(from, field, j));
+            const Message& from_child =
+                from_reflection->GetRepeatedMessage(from, field, j);
+            if (from_reflection == to_reflection) {
+              to_reflection
+                  ->AddMessage(to, field,
+                               from_child.GetReflection()->GetMessageFactory())
+                  ->MergeFrom(from_child);
+            } else {
+              to_reflection->AddMessage(to, field)->MergeFrom(from_child);
+            }
             break;
         }
       }
@@ -150,8 +158,15 @@ void ReflectionOps::Merge(const Message& from, Message* to) {
 #undef HANDLE_TYPE
 
         case FieldDescriptor::CPPTYPE_MESSAGE:
-          to_reflection->MutableMessage(to, field)->MergeFrom(
-              from_reflection->GetMessage(from, field));
+          const Message& from_child = from_reflection->GetMessage(from, field);
+          if (from_reflection == to_reflection) {
+            to_reflection
+                ->MutableMessage(
+                    to, field, from_child.GetReflection()->GetMessageFactory())
+                ->MergeFrom(from_child);
+          } else {
+            to_reflection->MutableMessage(to, field)->MergeFrom(from_child);
+          }
           break;
       }
     }
@@ -178,10 +193,13 @@ bool ReflectionOps::IsInitialized(const Message& message) {
   const Reflection* reflection = GetReflectionOrDie(message);
 
   // Check required fields of this message.
-  for (int i = 0; i < descriptor->field_count(); i++) {
-    if (descriptor->field(i)->is_required()) {
-      if (!reflection->HasField(message, descriptor->field(i))) {
-        return false;
+  {
+    const int field_count = descriptor->field_count();
+    for (int i = 0; i < field_count; i++) {
+      if (descriptor->field(i)->is_required()) {
+        if (!reflection->HasField(message, descriptor->field(i))) {
+          return false;
+        }
       }
     }
   }
@@ -234,45 +252,48 @@ bool ReflectionOps::IsInitialized(const Message& message) {
   return true;
 }
 
+static bool IsMapValueMessageTyped(const FieldDescriptor* map_field) {
+  return map_field->message_type()->field(1)->cpp_type() ==
+         FieldDescriptor::CPPTYPE_MESSAGE;
+}
+
 void ReflectionOps::DiscardUnknownFields(Message* message) {
   const Reflection* reflection = GetReflectionOrDie(*message);
 
   reflection->MutableUnknownFields(message)->Clear();
 
+  // Walk through the fields of this message and DiscardUnknownFields on any
+  // messages present.
   std::vector<const FieldDescriptor*> fields;
   reflection->ListFields(*message, &fields);
   for (int i = 0; i < fields.size(); i++) {
     const FieldDescriptor* field = fields[i];
-    if (field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) {
-      if (field->is_repeated()) {
-        if (field->is_map()) {
-          const FieldDescriptor* value_field = field->message_type()->field(1);
-          if (value_field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) {
-            const MapFieldBase* map_field =
-                reflection->MutableMapData(message, field);
-            if (map_field->IsMapValid()) {
-              MapIterator iter(message, field);
-              MapIterator end(message, field);
-              for (map_field->MapBegin(&iter), map_field->MapEnd(&end);
-                   iter != end; ++iter) {
-                iter.MutableValueRef()
-                    ->MutableMessageValue()
-                    ->DiscardUnknownFields();
-              }
-              continue;
-            }
-          } else {
-            continue;
-          }
+    // Skip over non-message fields.
+    if (field->cpp_type() != FieldDescriptor::CPPTYPE_MESSAGE) {
+      continue;
+    }
+    // Discard the unknown fields in maps that contain message values.
+    if (field->is_map() && IsMapValueMessageTyped(field)) {
+      const MapFieldBase* map_field =
+          reflection->MutableMapData(message, field);
+      if (map_field->IsMapValid()) {
+        MapIterator iter(message, field);
+        MapIterator end(message, field);
+        for (map_field->MapBegin(&iter), map_field->MapEnd(&end); iter != end;
+             ++iter) {
+          iter.MutableValueRef()->MutableMessageValue()->DiscardUnknownFields();
         }
-        int size = reflection->FieldSize(*message, field);
-        for (int j = 0; j < size; j++) {
-          reflection->MutableRepeatedMessage(message, field, j)
-              ->DiscardUnknownFields();
-        }
-      } else {
-        reflection->MutableMessage(message, field)->DiscardUnknownFields();
       }
+      // Discard every unknown field inside messages in a repeated field.
+    } else if (field->is_repeated()) {
+      int size = reflection->FieldSize(*message, field);
+      for (int j = 0; j < size; j++) {
+        reflection->MutableRepeatedMessage(message, field, j)
+            ->DiscardUnknownFields();
+      }
+      // Discard the unknown fields inside an optional message.
+    } else {
+      reflection->MutableMessage(message, field)->DiscardUnknownFields();
     }
   }
 }
@@ -303,10 +324,13 @@ void ReflectionOps::FindInitializationErrors(const Message& message,
   const Reflection* reflection = GetReflectionOrDie(message);
 
   // Check required fields of this message.
-  for (int i = 0; i < descriptor->field_count(); i++) {
-    if (descriptor->field(i)->is_required()) {
-      if (!reflection->HasField(message, descriptor->field(i))) {
-        errors->push_back(prefix + descriptor->field(i)->name());
+  {
+    const int field_count = descriptor->field_count();
+    for (int i = 0; i < field_count; i++) {
+      if (descriptor->field(i)->is_required()) {
+        if (!reflection->HasField(message, descriptor->field(i))) {
+          errors->push_back(prefix + descriptor->field(i)->name());
+        }
       }
     }
   }
@@ -334,6 +358,21 @@ void ReflectionOps::FindInitializationErrors(const Message& message,
       }
     }
   }
+}
+
+void GenericSwap(Message* m1, Message* m2) {
+  Arena* m2_arena = m2->GetArena();
+  GOOGLE_DCHECK(m1->GetArena() != m2_arena);
+
+  // Copy semantics in this case. We try to improve efficiency by placing the
+  // temporary on |m2|'s arena so that messages are copied twice rather than
+  // three times.
+  Message* tmp = m2->New(m2_arena);
+  std::unique_ptr<Message> tmp_deleter(m2_arena == nullptr ? tmp : nullptr);
+  tmp->CheckTypeAndMergeFrom(*m1);
+  m1->Clear();
+  m1->CheckTypeAndMergeFrom(*m2);
+  m2->GetReflection()->Swap(tmp, m2);
 }
 
 }  // namespace internal

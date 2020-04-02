@@ -15,17 +15,17 @@ use Google\Protobuf\Internal\GPBUtil;
  *
  * Generated from protobuf message <code>google.protobuf.OneofDescriptorProto</code>
  */
-final class OneofDescriptorProto extends \Google\Protobuf\Internal\Message
+class OneofDescriptorProto extends \Google\Protobuf\Internal\Message
 {
     /**
      * Generated from protobuf field <code>optional string name = 1;</code>
      */
-    private $name = '';
+    protected $name = '';
     private $has_name = false;
     /**
      * Generated from protobuf field <code>optional .google.protobuf.OneofOptions options = 2;</code>
      */
-    private $options = null;
+    protected $options = null;
     private $has_options = false;
 
     /**

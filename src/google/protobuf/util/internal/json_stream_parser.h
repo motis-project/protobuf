@@ -35,7 +35,7 @@
 #include <string>
 
 #include <google/protobuf/stubs/common.h>
-#include <google/protobuf/stubs/stringpiece.h>
+#include <google/protobuf/stubs/strutil.h>
 #include <google/protobuf/stubs/status.h>
 
 #include <google/protobuf/port_def.inc>
@@ -269,9 +269,16 @@ class PROTOBUF_EXPORT JsonStreamParser {
   // Whether to allow non UTF-8 encoded input and replace invalid code points.
   bool coerce_to_utf8_;
 
+  // Replacement character for invalid UTF-8 code points.
+  std::string utf8_replacement_character_;
+
   // Whether allows empty string represented null array value or object entry
   // value.
   bool allow_empty_null_;
+
+  // Whether unquoted object keys can contain embedded non-alphanumeric
+  // characters when this is unambiguous for parsing.
+  bool allow_permissive_key_naming_;
 
   // Whether allows out-of-range floating point numbers or reject them.
   bool loose_float_number_conversion_;

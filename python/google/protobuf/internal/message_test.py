@@ -106,6 +106,9 @@ def IsNegInf(val):
   return isinf(val) and (val < 0)
 
 
+warnings.simplefilter('error', DeprecationWarning)
+
+
 @_parameterized.named_parameters(
     ('_proto2', unittest_pb2),
     ('_proto3', unittest_proto3_arena_pb2))
@@ -164,6 +167,9 @@ class MessageTest(unittest.TestCase):
         msg.FromString(end_tag)
       self.assertEqual('Unexpected end-group tag.', str(context.exception))
 
+    # Field number 0 is illegal.
+    self.assertRaises(message.DecodeError, msg.FromString, b'\3\4')
+
   def testDeterminismParameters(self, message_module):
     # This message is always deterministically serialized, even if determinism
     # is disabled, so we can use it to verify that all the determinism
@@ -206,6 +212,19 @@ class MessageTest(unittest.TestCase):
     golden_message.ParseFromString(golden_data)
     pickled_message = pickle.dumps(golden_message)
 
+    unpickled_message = pickle.loads(pickled_message)
+    self.assertEqual(unpickled_message, golden_message)
+
+  def testPickleNestedMessage(self, message_module):
+    golden_message = message_module.TestPickleNestedMessage.NestedMessage(bb=1)
+    pickled_message = pickle.dumps(golden_message)
+    unpickled_message = pickle.loads(pickled_message)
+    self.assertEqual(unpickled_message, golden_message)
+
+  def testPickleNestedNestedMessage(self, message_module):
+    cls = message_module.TestPickleNestedMessage.NestedMessage
+    golden_message = cls.NestedNestedMessage(cc=1)
+    pickled_message = pickle.dumps(golden_message)
     unpickled_message = pickle.loads(pickled_message)
     self.assertEqual(unpickled_message, golden_message)
 
@@ -422,12 +441,19 @@ class MessageTest(unittest.TestCase):
     self.assertEqual(str(message), 'optional_float: 2.0\n')
 
   def testHighPrecisionFloatPrinting(self, message_module):
-    message = message_module.TestAllTypes()
-    message.optional_double = 0.12345678912345678
+    msg = message_module.TestAllTypes()
+    msg.optional_float = 0.12345678912345678
+    old_float = msg.optional_float
+    msg.ParseFromString(msg.SerializeToString())
+    self.assertEqual(old_float, msg.optional_float)
+
+  def testHighPrecisionDoublePrinting(self, message_module):
+    msg = message_module.TestAllTypes()
+    msg.optional_double = 0.12345678912345678
     if sys.version_info >= (3,):
-      self.assertEqual(str(message), 'optional_double: 0.12345678912345678\n')
+      self.assertEqual(str(msg), 'optional_double: 0.12345678912345678\n')
     else:
-      self.assertEqual(str(message), 'optional_double: 0.123456789123\n')
+      self.assertEqual(str(msg), 'optional_double: 0.123456789123\n')
 
   def testUnknownFieldPrinting(self, message_module):
     populated = message_module.TestAllTypes()
@@ -869,11 +895,13 @@ class MessageTest(unittest.TestCase):
   def testOneofDefaultValues(self, message_module):
     m = message_module.TestAllTypes()
     self.assertIs(None, m.WhichOneof('oneof_field'))
+    self.assertFalse(m.HasField('oneof_field'))
     self.assertFalse(m.HasField('oneof_uint32'))
 
     # Oneof is set even when setting it to a default value.
     m.oneof_uint32 = 0
     self.assertEqual('oneof_uint32', m.WhichOneof('oneof_field'))
+    self.assertTrue(m.HasField('oneof_field'))
     self.assertTrue(m.HasField('oneof_uint32'))
     self.assertFalse(m.HasField('oneof_string'))
 
@@ -2004,6 +2032,15 @@ class Proto3Test(unittest.TestCase):
     m2.map_int32_message[123].optional_int32 = 10
     m1.map_int32_all_types.MergeFrom(m2.map_int32_message)
     self.assertEqual(10, m1.map_int32_all_types[123].optional_int32)
+
+    # Test overwrite message value map
+    msg = map_unittest_pb2.TestMap()
+    msg.map_int32_foreign_message[222].c = 123
+    msg2 = map_unittest_pb2.TestMap()
+    msg2.map_int32_foreign_message[222].d = 20
+    msg.MergeFromString(msg2.SerializeToString())
+    self.assertEqual(msg.map_int32_foreign_message[222].d, 20)
+    self.assertNotEqual(msg.map_int32_foreign_message[222].c, 123)
 
   def testMergeFromBadType(self):
     msg = map_unittest_pb2.TestMap()

@@ -16,6 +16,7 @@ These are projects we know about implementing Protocol Buffers for other program
 * C: https://github.com/cloudwu/pbc/
 * C: https://github.com/haberman/upb/wiki
 * C: https://github.com/squidfunk/protobluff
+* C: https://github.com/eerimoq/pbtools
 * C++: https://github.com/google/protobuf (Google-official implementation)
 * C/C++: http://spbc.sf.net/
 * C#: http://code.google.com/p/protobuf-csharp-port
@@ -23,11 +24,11 @@ These are projects we know about implementing Protocol Buffers for other program
 * C#/.NET/WCF/VB: http://code.google.com/p/protobuf-net/
 * Clojure: http://github.com/ninjudd/clojure-protobuf
 * Clojure: https://github.com/clojusc/protobuf
+* Clojure: https://protojure.github.io
 * Common Lisp: http://github.com/ndantam/s-protobuf
 * Common Lisp: http://github.com/brown/protobuf
 * D: https://github.com/dcarp/protobuf-d
 * D: https://github.com/msoucy/dproto
-* D: http://256.makerslocal.org/wiki/index.php/ProtocolBuffer
 * D: https://github.com/opticron/ProtocolBuffer
 * Dart: https://github.com/dart-lang/dart-protobuf (runtime) https://github.com/dart-lang/dart-protoc-plugin (code generator)
 * Delphi: http://sourceforge.net/projects/protobuf-delphi/
@@ -50,6 +51,7 @@ These are projects we know about implementing Protocol Buffers for other program
 * Haxe: https://github.com/Atry/protoc-gen-haxe
 * Java: https://github.com/google/protobuf (Google-official implementation)
 * Java/Android: https://github.com/square/wire
+* Java: https://github.com/HebiRobotics/QuickBuffers/
 * Java ME: http://code.google.com/p/protobuf-javame/
 * Java ME: http://swingme.sourceforge.net/encode.shtml
 * Java ME: http://code.google.com/p/protobuf-j2me/
@@ -59,6 +61,7 @@ These are projects we know about implementing Protocol Buffers for other program
 * Javascript: http://code.google.com/p/protobuf-for-node/
 * Javascript: http://code.google.com/p/protostuff/
 * Julia: https://github.com/tanmaykm/ProtoBuf.jl
+* Kotlin: https://github.com/marcoferrer/kroto-plus
 * Kotlin: https://github.com/Kotlin/kotlinx.serialization
 * Lua: http://code.google.com/p/protoc-gen-lua/
 * Lua: http://github.com/indygreg/lua-protobuf
@@ -101,35 +104,39 @@ These are projects we know about implementing Protocol Buffers for other program
 GRPC (http://www.grpc.io/) is Google's RPC implementation for Protocol Buffers. There are other third-party RPC implementations as well.  Some of these actually work with Protocol Buffers service definitions (defined using the `service` keyword in `.proto` files) while others just use Protocol Buffers message objects.
 
 * https://github.com/grpc/grpc (C++, Node.js, Python, Ruby, Objective-C, PHP, C#, Google-official implementation)
-* http://zeroc.com/ice.html (Multiple languages)
-* http://code.google.com/p/protobuf-net/ (C#/.NET/WCF/VB)
-* https://launchpad.net/txprotobuf/ (Python)
-* https://github.com/modeswitch/protobuf-rpc (Python)
-* http://code.google.com/p/protobuf-socket-rpc/ (Java, Python)
-* http://code.google.com/p/proto-streamer/ (Java)
-* http://code.google.com/p/server1/ (C++)
-* http://deltavsoft.com/RcfUserGuide/Protobufs (C++)
-* http://code.google.com/p/protobuf-mina-rpc/ (Python client, Java server)
-* http://code.google.com/p/casocklib/ (C++)
-* http://code.google.com/p/cxf-protobuf/ (Java)
-* http://code.google.com/p/protobuf-remote/ (C++/C#)
-* http://code.google.com/p/protobuf-rpc-pro/ (Java)
-* https://code.google.com/p/eneter-protobuf-serializer/ (Java/.NET)
-* http://www.deltavsoft.com/RCFProto.html (C++/Java/Python/C#)
-* https://github.com/robbinfan/claire-protorpc (C++)
-* https://github.com/BaiduPS/sofa-pbrpc (C++)
-* https://github.com/ebencheung/arab (C++)
-* http://code.google.com/p/protobuf-csharp-rpc/ (C#)
-* https://github.com/thesamet/rpcz (C++/Python, based on ZeroMQ)
-* https://github.com/w359405949/libmaid (C++, Python)
+* https://zeroc.com/products/ice (Multiple languages)
+* https://github.com/protobuf-net/protobuf-net (C#/.NET/WCF/VB)
+* http://www.deltavsoft.com/doc/_external_serialization.html#Protobufs (C++)
+* https://protojure.github.io (Clojure)
+* https://code.google.com/p/protobuf-rpc-pro/ (Java)
+* https://github.com/baidu/sofa-pbrpc (C++)
+* https://github.com/madhon/protobuf-csharp-rpc (C#)
 * https://github.com/madwyn/libpbrpc (C++)
 * https://github.com/SeriousMa/grpc-protobuf-validation (Java)
-* https://github.com/tony612/grpc-elixir (Elixir)
+* https://github.com/elixir-grpc/grpc (Elixir)
 * https://github.com/johanbrandhorst/protobuf (GopherJS)
 * https://github.com/awakesecurity/gRPC-haskell (Haskell)
 * https://github.com/Yeolar/raster (C++)
 * https://github.com/jnordberg/wsrpc (JavaScript Node.js/Browser)
 * https://github.com/ppissias/xsrpcj (Java)
+
+Inactive:
+
+* https://launchpad.net/txprotobuf/ (Python)
+* https://github.com/modeswitch/protobuf-rpc (Python)
+* https://github.com/sdeo/protobuf-socket-rpc (Java, Python)
+* https://code.google.com/p/proto-streamer/ (Java)
+* https://code.google.com/p/server1/ (C++)
+* https://code.google.com/p/protobuf-mina-rpc/ (Python client, Java server)
+* https://code.google.com/p/casocklib/ (C++)
+* https://code.google.com/p/cxf-protobuf/ (Java)
+* https://code.google.com/p/protobuf-remote/ (C++/C#)
+* https://code.google.com/p/eneter-protobuf-serializer/ (Java/.NET)
+* https://github.com/robbinfan/claire/tree/master/protorpc (C++)
+* https://github.com/ebencheung/arab (C++)
+* https://code.google.com/p/protobuf-csharp-rpc/ (C#)
+* https://github.com/thesamet/rpcz (C++/Python, based on ZeroMQ)
+* https://github.com/w359405949/libmaid (C++, Python)
 
 ## Other Utilities
 

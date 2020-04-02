@@ -114,7 +114,7 @@ struct MapEntryFuncs {
   static uint8* InternalSerialize(int field_number, const Key& key,
                                   const Value& value, uint8* ptr,
                                   io::EpsCopyOutputStream* stream) {
-    stream->EnsureSpace(&ptr);
+    ptr = stream->EnsureSpace(ptr);
     ptr = WireFormatLite::WriteTagToArray(
         field_number, WireFormatLite::WIRETYPE_LENGTH_DELIMITED, ptr);
     ptr = io::CodedOutputStream::WriteVarint32ToArray(GetCachedSize(key, value),
@@ -128,7 +128,8 @@ struct MapEntryFuncs {
     // Tags for key and value will both be one byte (field numbers 1 and 2).
     size_t inner_length =
         2 + KeyTypeHandler::ByteSize(key) + ValueTypeHandler::ByteSize(value);
-    return inner_length + io::CodedOutputStream::VarintSize32(inner_length);
+    return inner_length + io::CodedOutputStream::VarintSize32(
+                              static_cast<uint32>(inner_length));
   }
 
   static int GetCachedSize(const Key& key, const Value& value) {
@@ -186,14 +187,14 @@ class MapEntryImpl : public Base {
   static const WireFormatLite::FieldType kEntryValueFieldType = kValueFieldType;
   static const int kEntryDefaultEnumValue = default_enum_value;
 
-  MapEntryImpl() : arena_(NULL) {
+  MapEntryImpl() {
     KeyTypeHandler::Initialize(&key_, NULL);
     ValueTypeHandler::InitializeMaybeByDefaultEnum(&value_, default_enum_value,
                                                    NULL);
     _has_bits_[0] = 0;
   }
 
-  explicit MapEntryImpl(Arena* arena) : arena_(arena) {
+  explicit MapEntryImpl(Arena* arena) : Base(arena) {
     KeyTypeHandler::Initialize(&key_, arena);
     ValueTypeHandler::InitializeMaybeByDefaultEnum(&value_, default_enum_value,
                                                    arena);
@@ -201,7 +202,7 @@ class MapEntryImpl : public Base {
   }
 
   ~MapEntryImpl() {
-    if (GetArenaNoVirtual() != NULL) return;
+    if (Base::GetArena() != NULL) return;
     KeyTypeHandler::DeleteNoArena(key_);
     ValueTypeHandler::DeleteNoArena(value_);
   }
@@ -217,11 +218,11 @@ class MapEntryImpl : public Base {
   }
   inline KeyMapEntryAccessorType* mutable_key() {
     set_has_key();
-    return KeyTypeHandler::EnsureMutable(&key_, GetArenaNoVirtual());
+    return KeyTypeHandler::EnsureMutable(&key_, Base::GetArena());
   }
   inline ValueMapEntryAccessorType* mutable_value() {
     set_has_value();
-    return ValueTypeHandler::EnsureMutable(&value_, GetArenaNoVirtual());
+    return ValueTypeHandler::EnsureMutable(&value_, Base::GetArena());
   }
 
   // implements MessageLite =========================================
@@ -234,7 +235,6 @@ class MapEntryImpl : public Base {
     MergeFromInternal(*::google::protobuf::internal::DownCast<const Derived*>(&other));
   }
 
-#if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
   const char* _InternalParse(const char* ptr, ParseContext* ctx) final {
     while (!ctx->Done(&ptr)) {
       uint32 tag;
@@ -256,53 +256,13 @@ class MapEntryImpl : public Base {
           ctx->SetLastTag(tag);
           return ptr;
         }
-        ptr = UnknownFieldParse(tag, static_cast<string*>(nullptr), ptr, ctx);
+        ptr = UnknownFieldParse(tag, static_cast<std::string*>(nullptr), ptr,
+                                ctx);
       }
       GOOGLE_PROTOBUF_PARSER_ASSERT(ptr);
     }
     return ptr;
   }
-#else
-  bool MergePartialFromCodedStream(io::CodedInputStream* input) override {
-    uint32 tag;
-
-    for (;;) {
-      // 1) corrupted data: return false;
-      // 2) unknown field: skip without putting into unknown field set;
-      // 3) unknown enum value: keep it in parsing. In proto2, caller should
-      // check the value and put this entry into containing message's unknown
-      // field set if the value is an unknown enum. In proto3, caller doesn't
-      // need to care whether the value is unknown enum;
-      // 4) missing key/value: missed key/value will have default value. caller
-      // should take this entry as if key/value is set to default value.
-      tag = input->ReadTagNoLastTag();
-      switch (tag) {
-        case kKeyTag:
-          if (!KeyTypeHandler::Read(input, mutable_key())) {
-            return false;
-          }
-          set_has_key();
-          break;
-
-        case kValueTag:
-          if (!ValueTypeHandler::Read(input, mutable_value())) {
-            return false;
-          }
-          set_has_value();
-          if (input->ExpectAtEnd()) return true;
-          break;
-
-        default:
-          if (tag == 0 || WireFormatLite::GetTagWireType(tag) ==
-                              WireFormatLite::WIRETYPE_END_GROUP) {
-            return true;
-          }
-          if (!WireFormatLite::SkipField(input, tag)) return false;
-          break;
-      }
-    }
-  }
-#endif
 
   size_t ByteSizeLong() const override {
     size_t size = 0;
@@ -316,8 +276,8 @@ class MapEntryImpl : public Base {
     return size;
   }
 
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      ::google::protobuf::uint8* ptr, io::EpsCopyOutputStream* stream) const override {
+  ::google::protobuf::uint8* _InternalSerialize(::google::protobuf::uint8* ptr,
+                              io::EpsCopyOutputStream* stream) const override {
     ptr = KeyTypeHandler::Write(kKeyFieldNumber, key(), ptr, stream);
     return ValueTypeHandler::Write(kValueFieldNumber, value(), ptr, stream);
   }
@@ -355,13 +315,13 @@ class MapEntryImpl : public Base {
   void MergeFromInternal(const MapEntryImpl& from) {
     if (from._has_bits_[0]) {
       if (from.has_key()) {
-        KeyTypeHandler::EnsureMutable(&key_, GetArenaNoVirtual());
-        KeyTypeHandler::Merge(from.key(), &key_, GetArenaNoVirtual());
+        KeyTypeHandler::EnsureMutable(&key_, Base::GetArena());
+        KeyTypeHandler::Merge(from.key(), &key_, Base::GetArena());
         set_has_key();
       }
       if (from.has_value()) {
-        ValueTypeHandler::EnsureMutable(&value_, GetArenaNoVirtual());
-        ValueTypeHandler::Merge(from.value(), &value_, GetArenaNoVirtual());
+        ValueTypeHandler::EnsureMutable(&value_, Base::GetArena());
+        ValueTypeHandler::Merge(from.value(), &value_, Base::GetArena());
         set_has_value();
       }
     }
@@ -369,8 +329,8 @@ class MapEntryImpl : public Base {
 
  public:
   void Clear() override {
-    KeyTypeHandler::Clear(&key_, GetArenaNoVirtual());
-    ValueTypeHandler::ClearMaybeByDefaultEnum(&value_, GetArenaNoVirtual(),
+    KeyTypeHandler::Clear(&key_, Base::GetArena());
+    ValueTypeHandler::ClearMaybeByDefaultEnum(&value_, Base::GetArena(),
                                               default_enum_value);
     clear_has_key();
     clear_has_value();
@@ -381,8 +341,6 @@ class MapEntryImpl : public Base {
     KeyTypeHandler::AssignDefaultValue(&d->key_);
     ValueTypeHandler::AssignDefaultValue(&d->value_);
   }
-
-  Arena* GetArena() const override { return GetArenaNoVirtual(); }
 
   // Parsing using MergePartialFromCodedStream, above, is not as
   // efficient as it could be.  This helper class provides a speedier way.
@@ -480,10 +438,10 @@ class MapEntryImpl : public Base {
       return ptr;
     }
 
-    template <typename Metadata>
+    template <typename UnknownType>
     const char* ParseWithEnumValidation(const char* ptr, ParseContext* ctx,
                                         bool (*is_valid)(int), uint32 field_num,
-                                        Metadata* metadata) {
+                                        InternalMetadata* metadata) {
       auto entry = NewEntry();
       ptr = entry->_InternalParse(ptr, ctx);
       if (!ptr) return nullptr;
@@ -491,7 +449,7 @@ class MapEntryImpl : public Base {
         UseKeyAndValueFromEntry();
       } else {
         WriteLengthDelimited(field_num, entry->SerializeAsString(),
-                             metadata->mutable_unknown_fields());
+                             metadata->mutable_unknown_fields<UnknownType>());
       }
       return ptr;
     }
@@ -555,12 +513,11 @@ class MapEntryImpl : public Base {
   void clear_has_value() { _has_bits_[0] &= ~0x00000002u; }
 
  public:
-  inline Arena* GetArenaNoVirtual() const { return arena_; }
+  inline Arena* GetArena() const { return Base::GetArena(); }
 
  public:  // Needed for constructing tables
   KeyOnMemory key_;
   ValueOnMemory value_;
-  Arena* arena_;
   uint32 _has_bits_[1];
 
  private:
@@ -589,6 +546,7 @@ class MapEntryLite
       SuperType;
   MapEntryLite() {}
   explicit MapEntryLite(Arena* arena) : SuperType(arena) {}
+  ~MapEntryLite() { MessageLite::_internal_metadata_.Delete<std::string>(); }
   void MergeFrom(const MapEntryLite& other) { MergeFromInternal(other); }
 
  private:
@@ -698,7 +656,7 @@ struct MapEntryHelper<MapEntryLite<T, Key, Value, kKeyFieldType,
         key_(FromHelper<kKeyFieldType>::From(map_pair.first)),
         value_(FromHelper<kValueFieldType>::From(map_pair.second)) {}
 
-  // Purposely not folowing the style guide naming. These are the names
+  // Purposely not following the style guide naming. These are the names
   // the proto compiler would generate given the map entry descriptor.
   // The proto compiler generates the offsets in this struct as if this was
   // a regular message. This way the table driven code barely notices it's

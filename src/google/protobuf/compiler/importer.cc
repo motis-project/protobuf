@@ -231,8 +231,9 @@ const FileDescriptor* Importer::Import(const std::string& filename) {
   return pool_.FindFileByName(filename);
 }
 
-void Importer::AddUnusedImportTrackFile(const std::string& file_name) {
-  pool_.AddUnusedImportTrackFile(file_name);
+void Importer::AddUnusedImportTrackFile(const std::string& file_name,
+                                        bool is_error) {
+  pool_.AddUnusedImportTrackFile(file_name, is_error);
 }
 
 void Importer::ClearUnusedImportTrackFiles() {
@@ -311,7 +312,7 @@ static std::string CanonicalizePath(std::string path) {
 
 static inline bool ContainsParentReference(const std::string& path) {
   return path == ".." || HasPrefixString(path, "../") ||
-         HasSuffixString(path, "/..") || path.find("/../") != string::npos;
+         HasSuffixString(path, "/..") || path.find("/../") != std::string::npos;
 }
 
 // Maps a file from an old location to a new one.  Typically, old_prefix is

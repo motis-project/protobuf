@@ -56,8 +56,8 @@ namespace internal {
 // message type does not get linked into the binary.
 class PROTOBUF_EXPORT ImplicitWeakMessage : public MessageLite {
  public:
-  ImplicitWeakMessage() : arena_(NULL) {}
-  explicit ImplicitWeakMessage(Arena* arena) : arena_(arena) {}
+  ImplicitWeakMessage() {}
+  explicit ImplicitWeakMessage(Arena* arena) : MessageLite(arena) {}
 
   static const ImplicitWeakMessage* default_instance();
 
@@ -68,8 +68,6 @@ class PROTOBUF_EXPORT ImplicitWeakMessage : public MessageLite {
     return Arena::CreateMessage<ImplicitWeakMessage>(arena);
   }
 
-  Arena* GetArena() const override { return arena_; }
-
   void Clear() override { data_.clear(); }
 
   bool IsInitialized() const override { return true; }
@@ -78,16 +76,12 @@ class PROTOBUF_EXPORT ImplicitWeakMessage : public MessageLite {
     data_.append(static_cast<const ImplicitWeakMessage&>(other).data_);
   }
 
-#if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
   const char* _InternalParse(const char* ptr, ParseContext* ctx) final;
-#else
-  bool MergePartialFromCodedStream(io::CodedInputStream* input) override;
-#endif
 
   size_t ByteSizeLong() const override { return data_.size(); }
 
-  uint8* InternalSerializeWithCachedSizesToArray(
-      uint8* target, io::EpsCopyOutputStream* stream) const final {
+  uint8* _InternalSerialize(uint8* target,
+                            io::EpsCopyOutputStream* stream) const final {
     return stream->WriteRaw(data_.data(), static_cast<int>(data_.size()),
                             target);
   }
@@ -97,7 +91,6 @@ class PROTOBUF_EXPORT ImplicitWeakMessage : public MessageLite {
   typedef void InternalArenaConstructable_;
 
  private:
-  Arena* const arena_;
   std::string data_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ImplicitWeakMessage);
 };

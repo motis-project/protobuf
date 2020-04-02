@@ -40,12 +40,11 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 #include <google/protobuf/descriptor.h>
-#include <google/protobuf/stubs/common.h>
-#include <google/protobuf/util/type_resolver.h>
 #include <google/protobuf/wire_format_lite.h>
-
+#include <google/protobuf/util/type_resolver.h>
 #include "conformance.pb.h"
 
 namespace conformance {
@@ -88,7 +87,13 @@ class ForkPipeRunner : public ConformanceTestRunner {
   static int Run(int argc, char *argv[],
                  const std::vector<ConformanceTestSuite*>& suites);
 
-  ForkPipeRunner(const std::string &executable)
+  ForkPipeRunner(const std::string& executable,
+                 const std::vector<string>& executable_args)
+      : child_pid_(-1),
+        executable_(executable),
+        executable_args_(executable_args) {}
+
+  explicit ForkPipeRunner(const std::string& executable)
       : child_pid_(-1), executable_(executable) {}
 
   virtual ~ForkPipeRunner() {}
@@ -108,6 +113,7 @@ class ForkPipeRunner : public ConformanceTestRunner {
   int read_fd_;
   pid_t child_pid_;
   std::string executable_;
+  const std::vector<string> executable_args_;
   std::string current_test_name_;
 };
 
@@ -185,7 +191,7 @@ class ConformanceTestSuite {
   // Test cases are classified into a few categories:
   //   REQUIRED: the test case must be passed for an implementation to be
   //             interoperable with other implementations. For example, a
-  //             parser implementaiton must accept both packed and unpacked
+  //             parser implementation must accept both packed and unpacked
   //             form of repeated primitive fields.
   //   RECOMMENDED: the test case is not required for the implementation to
   //                be interoperable with other implementations, but is
@@ -210,7 +216,7 @@ class ConformanceTestSuite {
         const string& test_name, const string& input);
     virtual ~ConformanceRequestSetting() {}
 
-    Message* GetTestMessage() const;
+    std::unique_ptr<Message> NewTestMessage() const;
 
     string GetTestName() const;
 
@@ -257,12 +263,10 @@ class ConformanceTestSuite {
       const ConformanceRequestSetting& setting,
       Message* test_message) = 0;
 
-  void VerifyResponse(
-      const ConformanceRequestSetting& setting,
-      const string& equivalent_wire_format,
-      const conformance::ConformanceResponse& response,
-      bool need_report_success,
-      bool require_same_wire_format);
+  void VerifyResponse(const ConformanceRequestSetting& setting,
+                      const string& equivalent_wire_format,
+                      const conformance::ConformanceResponse& response,
+                      bool need_report_success, bool require_same_wire_format);
 
   void ReportSuccess(const std::string& test_name);
   void ReportFailure(const string& test_name,

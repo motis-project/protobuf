@@ -389,16 +389,15 @@ VALUE Map_index(VALUE _self, VALUE key) {
  * was just inserted.
  */
 VALUE Map_index_set(VALUE _self, VALUE key, VALUE value) {
-  rb_check_frozen(_self);
-
   Map* self = ruby_to_Map(_self);
-
   char keybuf[TABLE_KEY_BUF_LENGTH];
   const char* keyval = NULL;
   size_t length = 0;
   upb_value v;
   void* mem;
   key = table_key(self, key, keybuf, &keyval, &length);
+
+  rb_check_frozen(_self);
 
   if (TYPE(value) == T_HASH) {
     VALUE args[1] = { value };
@@ -448,15 +447,14 @@ VALUE Map_has_key(VALUE _self, VALUE key) {
  * nil if none was present. Throws an exception if the key is of the wrong type.
  */
 VALUE Map_delete(VALUE _self, VALUE key) {
-  rb_check_frozen(_self);
-
   Map* self = ruby_to_Map(_self);
-
   char keybuf[TABLE_KEY_BUF_LENGTH];
   const char* keyval = NULL;
   size_t length = 0;
   upb_value v;
   key = table_key(self, key, keybuf, &keyval, &length);
+
+  rb_check_frozen(_self);
 
   if (upb_strtable_remove2(&self->table, keyval, length, &v)) {
     void* mem = value_memory(&v);
@@ -473,9 +471,9 @@ VALUE Map_delete(VALUE _self, VALUE key) {
  * Removes all entries from the map.
  */
 VALUE Map_clear(VALUE _self) {
-  rb_check_frozen(_self);
-
   Map* self = ruby_to_Map(_self);
+
+  rb_check_frozen(_self);
 
   // Uninit and reinit the table -- this is faster than iterating and doing a
   // delete-lookup on each key.
@@ -497,7 +495,7 @@ VALUE Map_length(VALUE _self) {
   return ULL2NUM(upb_strtable_count(&self->table));
 }
 
-static VALUE Map_new_this_type(VALUE _self) {
+VALUE Map_new_this_type(VALUE _self) {
   Map* self = ruby_to_Map(_self);
   VALUE new_map = Qnil;
   VALUE key_type = fieldtype_to_ruby(self->key_type);
@@ -561,7 +559,8 @@ VALUE Map_deep_copy(VALUE _self) {
     void* mem = value_memory(&v);
     upb_value dup;
     void* dup_mem = value_memory(&dup);
-    native_slot_deep_copy(self->value_type, dup_mem, mem);
+    native_slot_deep_copy(self->value_type, self->value_type_class, dup_mem,
+                          mem);
 
     if (!upb_strtable_insert2(&new_self->table,
                               upb_strtable_iter_key(&it),
@@ -633,7 +632,8 @@ VALUE Map_eq(VALUE _self, VALUE _other) {
       return Qfalse;
     }
 
-    if (!native_slot_eq(self->value_type, mem, other_mem)) {
+    if (!native_slot_eq(self->value_type, self->value_type_class, mem,
+                        other_mem)) {
       // Present, but value not equal.
       return Qfalse;
     }

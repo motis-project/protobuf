@@ -69,8 +69,7 @@ void SetCommonFieldVariables(const FieldDescriptor* descriptor,
 
   (*variables)["tag_size"] = StrCat(
       WireFormat::TagSize(descriptor->number(), descriptor->type()));
-  (*variables)["deprecated_attr"] =
-      DeprecatedAttribute(options, descriptor->options().deprecated());
+  (*variables)["deprecated_attr"] = DeprecatedAttribute(options, descriptor);
 
   (*variables)["set_hasbit"] = "";
   (*variables)["clear_hasbit"] = "";
@@ -112,17 +111,6 @@ void SetCommonOneofFieldVariables(
 }
 
 FieldGenerator::~FieldGenerator() {}
-
-void FieldGenerator::GenerateMergeFromCodedStreamWithPacking(
-    io::Printer* printer) const {
-  // Reaching here indicates a bug. Cases are:
-  //   - This FieldGenerator should support packing, but this method should be
-  //     overridden.
-  //   - This FieldGenerator doesn't support packing, and this method should
-  //     never have been called.
-  GOOGLE_LOG(FATAL) << "GenerateMergeFromCodedStreamWithPacking() "
-             << "called on field generator that does not support packing.";
-}
 
 FieldGeneratorMap::FieldGeneratorMap(const Descriptor* descriptor,
                                      const Options& options,

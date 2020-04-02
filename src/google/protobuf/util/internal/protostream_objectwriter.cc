@@ -35,7 +35,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <google/protobuf/stubs/time.h>
 #include <google/protobuf/stubs/once.h>
 #include <google/protobuf/wire_format_lite.h>
 #include <google/protobuf/util/internal/field_mask_utility.h>
@@ -43,6 +42,7 @@
 #include <google/protobuf/util/internal/constants.h>
 #include <google/protobuf/util/internal/utility.h>
 #include <google/protobuf/stubs/strutil.h>
+#include <google/protobuf/stubs/time.h>
 #include <google/protobuf/stubs/map_util.h>
 #include <google/protobuf/stubs/statusor.h>
 
@@ -480,6 +480,7 @@ bool ProtoStreamObjectWriter::Item::InsertMapKeyIfNotPresent(
   return InsertIfNotPresent(map_keys_.get(), std::string(map_key));
 }
 
+
 ProtoStreamObjectWriter* ProtoStreamObjectWriter::StartObject(
     StringPiece name) {
   if (invalid_depth() > 0) {
@@ -583,6 +584,7 @@ ProtoStreamObjectWriter* ProtoStreamObjectWriter::StartObject(
   }
 
   const google::protobuf::Field* field = BeginNamed(name, false);
+
   if (field == nullptr) return this;
 
   if (IsStruct(*field)) {
@@ -605,6 +607,12 @@ ProtoStreamObjectWriter* ProtoStreamObjectWriter::StartObject(
     Push(name, Item::MESSAGE, false, false);
     Push("struct_value", Item::MESSAGE, true, false);
     Push("fields", Item::MAP, true, true);
+    return this;
+  }
+
+  // Legacy JSON map is a list of key value pairs. Starts a map entry object.
+  if (options_.use_legacy_json_map_format && name.empty()) {
+    Push(name, IsAny(*field) ? Item::ANY : Item::MESSAGE, false, false);
     return this;
   }
 
@@ -641,6 +649,7 @@ ProtoStreamObjectWriter* ProtoStreamObjectWriter::EndObject() {
 
   return this;
 }
+
 
 ProtoStreamObjectWriter* ProtoStreamObjectWriter::StartList(
     StringPiece name) {
@@ -790,6 +799,7 @@ ProtoStreamObjectWriter* ProtoStreamObjectWriter::StartList(
 
   // name is not empty
   const google::protobuf::Field* field = Lookup(name);
+
   if (field == nullptr) {
     IncrementInvalidDepth();
     return this;
@@ -843,6 +853,10 @@ ProtoStreamObjectWriter* ProtoStreamObjectWriter::StartList(
   }
 
   if (IsMap(*field)) {
+    if (options_.use_legacy_json_map_format) {
+      Push(name, Item::MESSAGE, false, true);
+      return this;
+    }
     InvalidValue("Map", StrCat("Cannot bind a list to map for field '",
                                      name, "'."));
     IncrementInvalidDepth();
@@ -1207,7 +1221,7 @@ ProtoStreamObjectWriter* ProtoStreamObjectWriter::RenderDataPiece(
 // Map of functions that are responsible for rendering well known type
 // represented by the key.
 std::unordered_map<std::string, ProtoStreamObjectWriter::TypeRenderer>*
-    ProtoStreamObjectWriter::renderers_ = NULL;
+    ProtoStreamObjectWriter::renderers_ = nullptr;
 PROTOBUF_NAMESPACE_ID::internal::once_flag writer_renderers_init_;
 
 void ProtoStreamObjectWriter::InitRendererMap() {
@@ -1262,7 +1276,7 @@ void ProtoStreamObjectWriter::InitRendererMap() {
 
 void ProtoStreamObjectWriter::DeleteRendererMap() {
   delete ProtoStreamObjectWriter::renderers_;
-  renderers_ = NULL;
+  renderers_ = nullptr;
 }
 
 ProtoStreamObjectWriter::TypeRenderer*
@@ -1286,9 +1300,9 @@ bool ProtoStreamObjectWriter::ValidMapKey(StringPiece unnormalized_name) {
   return true;
 }
 
-void ProtoStreamObjectWriter::Push(StringPiece name,
-                                   Item::ItemType item_type,
-                                   bool is_placeholder, bool is_list) {
+void ProtoStreamObjectWriter::Push(
+    StringPiece name, Item::ItemType item_type, bool is_placeholder,
+    bool is_list) {
   is_list ? ProtoWriter::StartList(name) : ProtoWriter::StartObject(name);
 
   // invalid_depth == 0 means it is a successful StartObject or StartList.
@@ -1315,9 +1329,8 @@ void ProtoStreamObjectWriter::PopOneElement() {
 
 bool ProtoStreamObjectWriter::IsMap(const google::protobuf::Field& field) {
   if (field.type_url().empty() ||
-      field.kind() != google::protobuf::Field_Kind_TYPE_MESSAGE ||
-      field.cardinality() !=
-          google::protobuf::Field_Cardinality_CARDINALITY_REPEATED) {
+      field.kind() != google::protobuf::Field::TYPE_MESSAGE ||
+      field.cardinality() != google::protobuf::Field::CARDINALITY_REPEATED) {
     return false;
   }
   const google::protobuf::Type* field_type =

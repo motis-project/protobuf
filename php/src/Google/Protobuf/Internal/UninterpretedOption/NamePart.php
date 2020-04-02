@@ -19,17 +19,17 @@ use Google\Protobuf\Internal\GPBUtil;
  *
  * Generated from protobuf message <code>google.protobuf.UninterpretedOption.NamePart</code>
  */
-final class NamePart extends \Google\Protobuf\Internal\Message
+class NamePart extends \Google\Protobuf\Internal\Message
 {
     /**
      * Generated from protobuf field <code>required string name_part = 1;</code>
      */
-    private $name_part = '';
+    protected $name_part = '';
     private $has_name_part = false;
     /**
      * Generated from protobuf field <code>required bool is_extension = 2;</code>
      */
-    private $is_extension = false;
+    protected $is_extension = false;
     private $has_is_extension = false;
 
     /**

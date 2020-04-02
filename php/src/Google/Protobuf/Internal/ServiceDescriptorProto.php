@@ -15,12 +15,12 @@ use Google\Protobuf\Internal\GPBUtil;
  *
  * Generated from protobuf message <code>google.protobuf.ServiceDescriptorProto</code>
  */
-final class ServiceDescriptorProto extends \Google\Protobuf\Internal\Message
+class ServiceDescriptorProto extends \Google\Protobuf\Internal\Message
 {
     /**
      * Generated from protobuf field <code>optional string name = 1;</code>
      */
-    private $name = '';
+    protected $name = '';
     private $has_name = false;
     /**
      * Generated from protobuf field <code>repeated .google.protobuf.MethodDescriptorProto method = 2;</code>
@@ -30,7 +30,7 @@ final class ServiceDescriptorProto extends \Google\Protobuf\Internal\Message
     /**
      * Generated from protobuf field <code>optional .google.protobuf.ServiceOptions options = 3;</code>
      */
-    private $options = null;
+    protected $options = null;
     private $has_options = false;
 
     /**

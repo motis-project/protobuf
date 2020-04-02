@@ -36,6 +36,7 @@
 #include <google/protobuf/arena.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/generated_message_reflection.h>
+#include <google/protobuf/generated_message_util.h>
 #include <google/protobuf/map_entry.h>
 #include <google/protobuf/map_field_lite.h>
 #include <google/protobuf/map_type_handler.h>
@@ -74,7 +75,9 @@ class PROTOBUF_EXPORT MapFieldBase {
       : arena_(arena), repeated_field_(NULL), state_(STATE_MODIFIED_MAP) {
     // Mutex's destructor needs to be called explicitly to release resources
     // acquired in its constructor.
-    arena->OwnDestructor(&mutex_);
+    if (arena) {
+      arena->OwnDestructor(&mutex_);
+    }
   }
   virtual ~MapFieldBase();
 
@@ -156,7 +159,7 @@ class PROTOBUF_EXPORT MapFieldBase {
   friend class ContendedMapCleanTest;
   friend class GeneratedMessageReflection;
   friend class MapFieldAccessor;
-  friend class DynamicMessage;
+  friend class ::PROTOBUF_NAMESPACE_ID::DynamicMessage;
 
   // Virtual helper methods for MapIterator. MapIterator doesn't have the
   // type helper for key and value. Call these help methods to deal with
@@ -285,12 +288,12 @@ class MapField : public TypeDefinedMapFieldBase<Key, T> {
   const char* _InternalParse(const char* ptr, ParseContext* ctx) {
     return impl_._InternalParse(ptr, ctx);
   }
-  template <typename Metadata>
+  template <typename UnknownType>
   const char* ParseWithEnumValidation(const char* ptr, ParseContext* ctx,
                                       bool (*is_valid)(int), uint32 field_num,
-                                      Metadata* metadata) {
-    return impl_.ParseWithEnumValidation(ptr, ctx, is_valid, field_num,
-                                         metadata);
+                                      InternalMetadata* metadata) {
+    return impl_.template ParseWithEnumValidation<UnknownType>(
+        ptr, ctx, is_valid, field_num, metadata);
   }
 
  private:
@@ -310,6 +313,20 @@ class MapField : public TypeDefinedMapFieldBase<Key, T> {
   friend class MapFieldStateTest;  // For testing, it needs raw access to impl_
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MapField);
 };
+
+template <typename Derived, typename Key, typename T,
+          WireFormatLite::FieldType key_wire_type,
+          WireFormatLite::FieldType value_wire_type, int default_enum_value>
+bool AllAreInitialized(
+    const MapField<Derived, Key, T, key_wire_type, value_wire_type,
+                   default_enum_value>& field) {
+  const auto& t = field.GetMap();
+  for (typename Map<Key, T>::const_iterator it = t.begin(); it != t.end();
+       ++it) {
+    if (!it->second.IsInitialized()) return false;
+  }
+  return true;
+}
 
 template <typename T, typename Key, typename Value,
           WireFormatLite::FieldType kKeyFieldType,
@@ -372,6 +389,7 @@ class PROTOBUF_EXPORT MapKey {
  public:
   MapKey() : type_(0) {}
   MapKey(const MapKey& other) : type_(0) { CopyFrom(other); }
+
   MapKey& operator=(const MapKey& other) {
     CopyFrom(other);
     return *this;
@@ -379,7 +397,7 @@ class PROTOBUF_EXPORT MapKey {
 
   ~MapKey() {
     if (type_ == FieldDescriptor::CPPTYPE_STRING) {
-      delete val_.string_value_;
+      val_.string_value_.Destruct();
     }
   }
 
@@ -412,9 +430,9 @@ class PROTOBUF_EXPORT MapKey {
     SetType(FieldDescriptor::CPPTYPE_BOOL);
     val_.bool_value_ = value;
   }
-  void SetStringValue(const std::string& val) {
+  void SetStringValue(std::string val) {
     SetType(FieldDescriptor::CPPTYPE_STRING);
-    *val_.string_value_ = val;
+    *val_.string_value_.get_mutable() = std::move(val);
   }
 
   int64 GetInt64Value() const {
@@ -439,7 +457,7 @@ class PROTOBUF_EXPORT MapKey {
   }
   const std::string& GetStringValue() const {
     TYPE_CHECK(FieldDescriptor::CPPTYPE_STRING, "MapKey::GetStringValue");
-    return *val_.string_value_;
+    return val_.string_value_.get();
   }
 
   bool operator<(const MapKey& other) const {
@@ -456,7 +474,7 @@ class PROTOBUF_EXPORT MapKey {
         GOOGLE_LOG(FATAL) << "Unsupported";
         return false;
       case FieldDescriptor::CPPTYPE_STRING:
-        return *val_.string_value_ < *other.val_.string_value_;
+        return val_.string_value_.get() < other.val_.string_value_.get();
       case FieldDescriptor::CPPTYPE_INT64:
         return val_.int64_value_ < other.val_.int64_value_;
       case FieldDescriptor::CPPTYPE_INT32:
@@ -484,7 +502,7 @@ class PROTOBUF_EXPORT MapKey {
         GOOGLE_LOG(FATAL) << "Unsupported";
         break;
       case FieldDescriptor::CPPTYPE_STRING:
-        return *val_.string_value_ == *other.val_.string_value_;
+        return val_.string_value_.get() == other.val_.string_value_.get();
       case FieldDescriptor::CPPTYPE_INT64:
         return val_.int64_value_ == other.val_.int64_value_;
       case FieldDescriptor::CPPTYPE_INT32:
@@ -510,7 +528,7 @@ class PROTOBUF_EXPORT MapKey {
         GOOGLE_LOG(FATAL) << "Unsupported";
         break;
       case FieldDescriptor::CPPTYPE_STRING:
-        *val_.string_value_ = *other.val_.string_value_;
+        *val_.string_value_.get_mutable() = other.val_.string_value_.get();
         break;
       case FieldDescriptor::CPPTYPE_INT64:
         val_.int64_value_ = other.val_.int64_value_;
@@ -538,7 +556,7 @@ class PROTOBUF_EXPORT MapKey {
 
   union KeyValue {
     KeyValue() {}
-    std::string* string_value_;
+    internal::ExplicitlyConstructed<std::string> string_value_;
     int64 int64_value_;
     int32 int32_value_;
     uint64 uint64_value_;
@@ -549,11 +567,11 @@ class PROTOBUF_EXPORT MapKey {
   void SetType(FieldDescriptor::CppType type) {
     if (type_ == type) return;
     if (type_ == FieldDescriptor::CPPTYPE_STRING) {
-      delete val_.string_value_;
+      val_.string_value_.Destruct();
     }
     type_ = type;
     if (type_ == FieldDescriptor::CPPTYPE_STRING) {
-      val_.string_value_ = new std::string;
+      val_.string_value_.DefaultConstruct();
     }
   }
 

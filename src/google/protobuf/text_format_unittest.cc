@@ -36,6 +36,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+
 #include <limits>
 #include <memory>
 
@@ -57,7 +58,6 @@
 #include <google/protobuf/stubs/substitute.h>
 #include <google/protobuf/testing/googletest.h>
 #include <gtest/gtest.h>
-#include <google/protobuf/stubs/mathlimits.h>
 
 
 #include <google/protobuf/port_def.inc>
@@ -356,6 +356,39 @@ TEST_F(TextFormatTest, PrintUnknownMessage) {
       text);
 }
 
+TEST_F(TextFormatTest, PrintDeeplyNestedUnknownMessage) {
+  // Create a deeply nested message.
+  static constexpr int kNestingDepth = 25000;
+  static constexpr int kUnknownFieldNumber = 1;
+  std::vector<int> lengths;
+  lengths.reserve(kNestingDepth);
+  lengths.push_back(0);
+  for (int i = 0; i < kNestingDepth - 1; ++i) {
+    lengths.push_back(
+        internal::WireFormatLite::TagSize(
+            kUnknownFieldNumber, internal::WireFormatLite::TYPE_BYTES) +
+        internal::WireFormatLite::LengthDelimitedSize(lengths.back()));
+  }
+  std::string serialized;
+  {
+    io::StringOutputStream zero_copy_stream(&serialized);
+    io::CodedOutputStream coded_stream(&zero_copy_stream);
+    for (int i = kNestingDepth - 1; i >= 0; --i) {
+      internal::WireFormatLite::WriteTag(
+          kUnknownFieldNumber,
+          internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &coded_stream);
+      coded_stream.WriteVarint32(lengths[i]);
+    }
+  }
+
+  // Parse the data and verify that we can print it without overflowing the
+  // stack.
+  unittest::TestEmptyMessage message;
+  ASSERT_TRUE(message.ParseFromString(serialized));
+  std::string text;
+  EXPECT_TRUE(TextFormat::PrintToString(message, &text));
+}
+
 TEST_F(TextFormatTest, PrintMessageWithIndent) {
   // Test adding an initial indent to printing.
 
@@ -535,6 +568,54 @@ TEST_F(TextFormatTest, CustomPrinterForComments) {
       "}\n"
       "repeated_import_message {  # ImportMessage: 1\n"
       "  d: 44  # x2c\n"
+      "}\n",
+      text);
+}
+
+class CustomMessageContentFieldValuePrinter
+    : public TextFormat::FastFieldValuePrinter {
+ public:
+  bool PrintMessageContent(
+      const Message& message, int field_index, int field_count,
+      bool single_line_mode,
+      TextFormat::BaseTextGenerator* generator) const override {
+    if (message.ByteSizeLong() > 0) {
+      generator->PrintString(
+          strings::Substitute("# REDACTED, $0 bytes\n", message.ByteSizeLong()));
+    }
+    return true;
+  }
+};
+
+TEST_F(TextFormatTest, CustomPrinterForMessageContent) {
+  protobuf_unittest::TestAllTypes message;
+  message.mutable_optional_nested_message();
+  message.mutable_optional_import_message()->set_d(42);
+  message.add_repeated_nested_message();
+  message.add_repeated_nested_message();
+  message.add_repeated_import_message()->set_d(43);
+  message.add_repeated_import_message()->set_d(44);
+  TextFormat::Printer printer;
+  CustomMessageContentFieldValuePrinter my_field_printer;
+  printer.SetDefaultFieldValuePrinter(
+      new CustomMessageContentFieldValuePrinter());
+  std::string text;
+  printer.PrintToString(message, &text);
+  EXPECT_EQ(
+      "optional_nested_message {\n"
+      "}\n"
+      "optional_import_message {\n"
+      "  # REDACTED, 2 bytes\n"
+      "}\n"
+      "repeated_nested_message {\n"
+      "}\n"
+      "repeated_nested_message {\n"
+      "}\n"
+      "repeated_import_message {\n"
+      "  # REDACTED, 2 bytes\n"
+      "}\n"
+      "repeated_import_message {\n"
+      "  # REDACTED, 2 bytes\n"
       "}\n",
       text);
 }
@@ -726,8 +807,8 @@ TEST_F(TextFormatExtensionsTest, ParseExtensions) {
 
 TEST_F(TextFormatTest, ParseEnumFieldFromNumber) {
   // Create a parse string with a numerical value for an enum field.
-  std::string parse_string = strings::Substitute("optional_nested_enum: $0",
-                                                 unittest::TestAllTypes::BAZ);
+  std::string parse_string =
+      strings::Substitute("optional_nested_enum: $0", unittest::TestAllTypes::BAZ);
   EXPECT_TRUE(TextFormat::ParseFromString(parse_string, &proto_));
   EXPECT_TRUE(proto_.has_optional_nested_enum());
   EXPECT_EQ(unittest::TestAllTypes::BAZ, proto_.optional_nested_enum());
@@ -776,7 +857,7 @@ TEST_F(TextFormatTest, ParseUnknownEnumFieldProto3) {
 }
 
 TEST_F(TextFormatTest, ParseStringEscape) {
-  // Create a parse string with escpaed characters in it.
+  // Create a parse string with escaped characters in it.
   std::string parse_string =
       "optional_string: " + kEscapeTestStringEscaped + "\n";
 
@@ -1001,6 +1082,9 @@ TEST_F(TextFormatTest, PrintExotic) {
   message.add_repeated_double(std::numeric_limits<double>::infinity());
   message.add_repeated_double(-std::numeric_limits<double>::infinity());
   message.add_repeated_double(std::numeric_limits<double>::quiet_NaN());
+  message.add_repeated_double(-std::numeric_limits<double>::quiet_NaN());
+  message.add_repeated_double(std::numeric_limits<double>::signaling_NaN());
+  message.add_repeated_double(-std::numeric_limits<double>::signaling_NaN());
   message.add_repeated_string(std::string("\000\001\a\b\f\n\r\t\v\\\'\"", 12));
 
   // Fun story:  We used to use 1.23e22 instead of 1.23e21 above, but this
@@ -1022,6 +1106,9 @@ TEST_F(TextFormatTest, PrintExotic) {
       "repeated_double: 1.23e-18\n"
       "repeated_double: inf\n"
       "repeated_double: -inf\n"
+      "repeated_double: nan\n"
+      "repeated_double: nan\n"
+      "repeated_double: nan\n"
       "repeated_double: nan\n"
       "repeated_string: "
       "\"\\000\\001\\007\\010\\014\\n\\r\\t\\013\\\\\\'\\\"\"\n",
@@ -1196,8 +1283,8 @@ TEST_F(TextFormatTest, ParseExotic) {
             -std::numeric_limits<double>::infinity());
   EXPECT_EQ(message.repeated_double(10),
             -std::numeric_limits<double>::infinity());
-  EXPECT_TRUE(MathLimits<double>::IsNaN(message.repeated_double(11)));
-  EXPECT_TRUE(MathLimits<double>::IsNaN(message.repeated_double(12)));
+  EXPECT_TRUE(std::isnan(message.repeated_double(11)));
+  EXPECT_TRUE(std::isnan(message.repeated_double(12)));
 
   // Note:  Since these string literals have \0's in them, we must explicitly
   // pass their sizes to string's constructor.
@@ -1359,7 +1446,7 @@ class TextFormatParserTest : public testing::Test {
     // implements ErrorCollector -------------------------------------
     void AddError(int line, int column, const std::string& message) {
       strings::SubstituteAndAppend(&text_, "$0:$1: $2\n", line + 1, column + 1,
-                                   message);
+                                message);
     }
 
     void AddWarning(int line, int column, const std::string& message) {

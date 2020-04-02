@@ -37,6 +37,7 @@
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream.h>
+#include <google/protobuf/arena.h>
 #include <google/protobuf/arenastring.h>
 #include <google/protobuf/implicit_weak_message.h>
 #include <google/protobuf/metadata_lite.h>
@@ -78,7 +79,7 @@ inline void WriteLengthDelimited(uint32 num, StringPiece val,
 //
 // Where the '-' represent the bytes which are vertically lined up with the
 // bytes of the stream. The proto parser requires its input to be presented
-// similarily with the extra
+// similarly with the extra
 // property that each chunk has kSlopBytes past its end that overlaps with the
 // first kSlopBytes of the next chunk, or if there is no next chunk at least its
 // still valid to read those bytes. Again, pictorially, we now have
@@ -119,7 +120,7 @@ class PROTOBUF_EXPORT EpsCopyInputStream {
     } else {
       count = size_ + static_cast<int>(buffer_end_ - ptr);
     }
-    if (count > 0) zcis_->BackUp(count);
+    if (count > 0) StreamBackUp(count);
   }
 
   // If return value is negative it's an error
@@ -193,6 +194,9 @@ class PROTOBUF_EXPORT EpsCopyInputStream {
     return ptr > limit_end_ &&
            (next_chunk_ == nullptr || ptr - buffer_end_ > limit_);
   }
+  int BytesUntilLimit(const char* ptr) const {
+    return limit_ + static_cast<int>(buffer_end_ - ptr);
+  }
   // Returns true if more data is available, if false is returned one has to
   // call Done for further checks.
   bool DataAvailable(const char* ptr) { return ptr < limit_end_; }
@@ -215,12 +219,12 @@ class PROTOBUF_EXPORT EpsCopyInputStream {
     overall_limit_ = 0;
     if (flat.size() > kSlopBytes) {
       limit_ = kSlopBytes;
-      limit_end_ = buffer_end_ = flat.end() - kSlopBytes;
+      limit_end_ = buffer_end_ = flat.data() + flat.size() - kSlopBytes;
       next_chunk_ = buffer_;
       if (aliasing_ == kOnPatch) aliasing_ = kNoDelta;
-      return flat.begin();
+      return flat.data();
     } else {
-      std::memcpy(buffer_, flat.begin(), flat.size());
+      std::memcpy(buffer_, flat.data(), flat.size());
       limit_ = 0;
       limit_end_ = buffer_end_ = buffer_ + flat.size();
       next_chunk_ = nullptr;
@@ -235,6 +239,7 @@ class PROTOBUF_EXPORT EpsCopyInputStream {
   const char* InitFrom(io::ZeroCopyInputStream* zcis);
 
   const char* InitFrom(io::ZeroCopyInputStream* zcis, int limit) {
+    if (limit == -1) return InitFrom(zcis);
     overall_limit_ = limit;
     auto res = InitFrom(zcis);
     limit_ = limit - static_cast<int>(buffer_end_ - res);
@@ -267,12 +272,24 @@ class PROTOBUF_EXPORT EpsCopyInputStream {
   // DoneFallback.
   uint32 last_tag_minus_1_ = 0;
   int overall_limit_ = INT_MAX;  // Overall limit independent of pushed limits.
+  // Pretty random large number that seems like a safe allocation on most
+  // systems. TODO(gerbens) do we need to set this as build flag?
+  enum { kSafeStringSize = 50000000 };
 
   std::pair<const char*, bool> DoneFallback(const char* ptr, int d);
   const char* Next(int overrun, int d);
   const char* SkipFallback(const char* ptr, int size);
   const char* AppendStringFallback(const char* ptr, int size, std::string* str);
   const char* ReadStringFallback(const char* ptr, int size, std::string* str);
+  bool StreamNext(const void** data) {
+    bool res = zcis_->Next(data, &size_);
+    if (res) overall_limit_ -= size_;
+    return res;
+  }
+  void StreamBackUp(int count) {
+    zcis_->BackUp(count);
+    overall_limit_ += count;
+  }
 
   template <typename A>
   const char* AppendSize(const char* ptr, int size, const A& append) {
@@ -438,7 +455,9 @@ T UnalignedLoad(const char* p) {
   return res;
 }
 
+PROTOBUF_EXPORT
 std::pair<const char*, uint32> VarintParseSlow32(const char* p, uint32 res);
+PROTOBUF_EXPORT
 std::pair<const char*, uint64> VarintParseSlow64(const char* p, uint32 res);
 
 inline const char* VarintParseSlow(const char* p, uint32 res, uint32* out) {
@@ -473,10 +492,11 @@ PROTOBUF_MUST_USE_RESULT const char* VarintParse(const char* p, T* out) {
 // Used for tags, could read up to 5 bytes which must be available.
 // Caller must ensure its safe to call.
 
+PROTOBUF_EXPORT
 std::pair<const char*, uint32> ReadTagFallback(const char* p, uint32 res);
 
 // Same as ParseVarint but only accept 5 bytes at most.
-inline const char* ReadTag(const char* p, uint32* out, uint32 max_tag = 0) {
+inline const char* ReadTag(const char* p, uint32* out, uint32 /*max_tag*/ = 0) {
   uint32 res = static_cast<uint8>(p[0]);
   if (res < 128) {
     *out = res;
@@ -538,6 +558,7 @@ inline const char* ParseBigVarint(const char* p, uint64* out) {
   return nullptr;
 }
 
+PROTOBUF_EXPORT
 std::pair<const char*, int32> ReadSizeFallback(const char* p, uint32 first);
 // Used for tags, could read up to 5 bytes which must be available. Additionally
 // it makes sure the unsigned value fits a int32, otherwise returns nullptr.
@@ -559,8 +580,14 @@ inline uint32 ReadSize(const char** pp) {
 // function composition. We rely on the compiler to inline this.
 // Also in debug compiles having local scoped variables tend to generated
 // stack frames that scale as O(num fields).
-inline uint64 ReadVarint(const char** p) {
+inline uint64 ReadVarint64(const char** p) {
   uint64 tmp;
+  *p = VarintParse(*p, &tmp);
+  return tmp;
+}
+
+inline uint32 ReadVarint32(const char** p) {
+  uint32 tmp;
   *p = VarintParse(*p, &tmp);
   return tmp;
 }
@@ -611,23 +638,13 @@ const char* EpsCopyInputStream::ReadPackedVarint(const char* ptr, Add add) {
 PROTOBUF_EXPORT
 bool VerifyUTF8(StringPiece s, const char* field_name);
 
+inline bool VerifyUTF8(const std::string* s, const char* field_name) {
+  return VerifyUTF8(*s, field_name);
+}
+
 // All the string parsers with or without UTF checking and for all CTypes.
 PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* InlineGreedyStringParser(
     std::string* s, const char* ptr, ParseContext* ctx);
-
-PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char*
-InlineGreedyStringParserUTF8(std::string* s, const char* ptr, ParseContext* ctx,
-                             const char* field_name);
-// Inline because we don't want to pay the price of field_name in opt mode.
-inline PROTOBUF_MUST_USE_RESULT const char* InlineGreedyStringParserUTF8Verify(
-    std::string* s, const char* ptr, ParseContext* ctx,
-    const char* field_name) {
-  auto p = InlineGreedyStringParser(s, ptr, ctx);
-#ifndef NDEBUG
-  VerifyUTF8(*s, field_name);
-#endif  // !NDEBUG
-  return p;
-}
 
 
 // Add any of the following lines to debug which parse function is failing.
@@ -725,13 +742,39 @@ PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* PackedSInt64Parser(
     void* object, const char* ptr, ParseContext* ctx);
 PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* PackedEnumParser(
     void* object, const char* ptr, ParseContext* ctx);
-PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* PackedEnumParser(
-    void* object, const char* ptr, ParseContext* ctx, bool (*is_valid)(int),
-    InternalMetadataWithArenaLite* metadata, int field_num);
-PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* PackedEnumParserArg(
-    void* object, const char* ptr, ParseContext* ctx,
-    bool (*is_valid)(const void*, int), const void* data,
-    InternalMetadataWithArenaLite* metadata, int field_num);
+
+template <typename T>
+PROTOBUF_EXPORT_TEMPLATE_DEFINE(PROTOBUF_EXPORT)
+PROTOBUF_MUST_USE_RESULT const
+    char* PackedEnumParser(void* object, const char* ptr, ParseContext* ctx,
+                           bool (*is_valid)(int), InternalMetadata* metadata,
+                           int field_num) {
+  return ctx->ReadPackedVarint(
+      ptr, [object, is_valid, metadata, field_num](uint64 val) {
+        if (is_valid(val)) {
+          static_cast<RepeatedField<int>*>(object)->Add(val);
+        } else {
+          WriteVarint(field_num, val, metadata->mutable_unknown_fields<T>());
+        }
+      });
+}
+
+template <typename T>
+PROTOBUF_EXPORT_TEMPLATE_DEFINE(PROTOBUF_EXPORT)
+PROTOBUF_MUST_USE_RESULT const
+    char* PackedEnumParserArg(void* object, const char* ptr, ParseContext* ctx,
+                              bool (*is_valid)(const void*, int),
+                              const void* data, InternalMetadata* metadata,
+                              int field_num) {
+  return ctx->ReadPackedVarint(
+      ptr, [object, is_valid, data, metadata, field_num](uint64 val) {
+        if (is_valid(data, val)) {
+          static_cast<RepeatedField<int>*>(object)->Add(val);
+        } else {
+          WriteVarint(field_num, val, metadata->mutable_unknown_fields<T>());
+        }
+      });
+}
 
 PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* PackedBoolParser(
     void* object, const char* ptr, ParseContext* ctx);
@@ -756,9 +799,6 @@ PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* UnknownGroupLiteParse(
 // UnknownFieldSet* to make the generated code isomorphic between full and lite.
 PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* UnknownFieldParse(
     uint32 tag, std::string* unknown, const char* ptr, ParseContext* ctx);
-PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* UnknownFieldParse(
-    uint32 tag, InternalMetadataWithArenaLite* metadata, const char* ptr,
-    ParseContext* ctx);
 
 }  // namespace internal
 }  // namespace protobuf

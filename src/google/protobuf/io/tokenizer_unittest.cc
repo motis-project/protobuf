@@ -56,7 +56,7 @@ namespace {
 // Data-Driven Test Infrastructure
 
 // TODO(kenton):  This is copied from coded_stream_unittest.  This is
-//   temporary until these fetaures are integrated into gTest itself.
+//   temporary until these features are integrated into gTest itself.
 
 // TEST_1D and TEST_2D are macros I'd eventually like to see added to
 // gTest.  These macros can be used to declare tests which should be
@@ -127,7 +127,7 @@ class TestInputStream : public ZeroCopyInputStream {
   ~TestInputStream() {}
 
   // implements ZeroCopyInputStream ----------------------------------
-  bool Next(const void** data, int* size) {
+  bool Next(const void** data, int* size) override {
     // We'll return empty buffers starting with the first buffer, and every
     // 3 and 5 buffers after that.
     if (counter_ % 3 == 0 || counter_ % 5 == 0) {
@@ -141,9 +141,9 @@ class TestInputStream : public ZeroCopyInputStream {
     }
   }
 
-  void BackUp(int count) { return array_stream_.BackUp(count); }
-  bool Skip(int count) { return array_stream_.Skip(count); }
-  int64 ByteCount() const { return array_stream_.ByteCount(); }
+  void BackUp(int count) override { return array_stream_.BackUp(count); }
+  bool Skip(int count) override { return array_stream_.Skip(count); }
+  int64_t ByteCount() const override { return array_stream_.ByteCount(); }
 
  private:
   ArrayInputStream array_stream_;

@@ -18,7 +18,7 @@ else
 PTHREAD_DEF =
 endif
 
-PROTOBUF_VERSION = 20:0:0
+PROTOBUF_VERSION = 22:4:0
 
 if GCC
 # Turn on all warnings except for sign comparison (we ignore sign comparison
@@ -228,8 +228,6 @@ libprotobuf_la_SOURCES =                                       \
   $(libprotobuf_lite_la_SOURCES)                               \
   google/protobuf/any.pb.cc                                    \
   google/protobuf/api.pb.cc                                    \
-  google/protobuf/stubs/mathlimits.cc                          \
-  google/protobuf/stubs/mathlimits.h                           \
   google/protobuf/any.cc                                       \
   google/protobuf/descriptor.cc                                \
   google/protobuf/descriptor_database.cc                       \
@@ -512,6 +510,7 @@ protoc_inputs =                                                   \
   google/protobuf/unittest_proto3_arena.proto                     \
   google/protobuf/unittest_proto3_arena_lite.proto                \
   google/protobuf/unittest_proto3_lite.proto                      \
+  google/protobuf/unittest_proto3_optional.proto                  \
   google/protobuf/unittest_well_known_types.proto                 \
   google/protobuf/util/internal/testdata/anys.proto               \
   google/protobuf/util/internal/testdata/books.proto              \
@@ -645,6 +644,8 @@ protoc_outputs =                                                  \
   google/protobuf/unittest_proto3_arena_lite.pb.h                 \
   google/protobuf/unittest_proto3_lite.pb.cc                      \
   google/protobuf/unittest_proto3_lite.pb.h                       \
+  google/protobuf/unittest_proto3_optional.pb.cc                  \
+  google/protobuf/unittest_proto3_optional.pb.h                   \
   google/protobuf/unittest_well_known_types.pb.cc                 \
   google/protobuf/unittest_well_known_types.pb.h                  \
   google/protobuf/util/internal/testdata/anys.pb.cc               \
@@ -688,7 +689,7 @@ else
 # relative to srcdir, which may not be the same as the current directory when
 # building out-of-tree.
 unittest_proto_middleman: protoc$(EXEEXT) $(protoc_inputs)
-	oldpwd=`pwd` && ( cd $(srcdir) && $$oldpwd/protoc$(EXEEXT) -I. --cpp_out=$$oldpwd $(protoc_inputs) )
+	oldpwd=`pwd` && ( cd $(srcdir) && $$oldpwd/protoc$(EXEEXT) -I. --cpp_out=$$oldpwd $(protoc_inputs) --experimental_allow_proto3_optional )
 	touch unittest_proto_middleman
 
 endif

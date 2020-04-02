@@ -19,21 +19,21 @@ use Google\Protobuf\Internal\GPBUtil;
  *
  * Generated from protobuf message <code>google.protobuf.EnumDescriptorProto.EnumReservedRange</code>
  */
-final class EnumReservedRange extends \Google\Protobuf\Internal\Message
+class EnumReservedRange extends \Google\Protobuf\Internal\Message
 {
     /**
      * Inclusive.
      *
      * Generated from protobuf field <code>optional int32 start = 1;</code>
      */
-    private $start = 0;
+    protected $start = 0;
     private $has_start = false;
     /**
      * Inclusive.
      *
      * Generated from protobuf field <code>optional int32 end = 2;</code>
      */
-    private $end = 0;
+    protected $end = 0;
     private $has_end = false;
 
     /**

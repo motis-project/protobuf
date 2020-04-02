@@ -13,7 +13,7 @@ use Google\Protobuf\Internal\GPBUtil;
 /**
  * Generated from protobuf message <code>google.protobuf.ServiceOptions</code>
  */
-final class ServiceOptions extends \Google\Protobuf\Internal\Message
+class ServiceOptions extends \Google\Protobuf\Internal\Message
 {
     /**
      * Is this service deprecated?
@@ -23,7 +23,7 @@ final class ServiceOptions extends \Google\Protobuf\Internal\Message
      *
      * Generated from protobuf field <code>optional bool deprecated = 33 [default = false];</code>
      */
-    private $deprecated = false;
+    protected $deprecated = false;
     private $has_deprecated = false;
     /**
      * The parser stores options it doesn't recognize here. See above.

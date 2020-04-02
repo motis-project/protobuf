@@ -13,7 +13,7 @@ use Google\Protobuf\Internal\GPBUtil;
 /**
  * Generated from protobuf message <code>google.protobuf.GeneratedCodeInfo.Annotation</code>
  */
-final class Annotation extends \Google\Protobuf\Internal\Message
+class Annotation extends \Google\Protobuf\Internal\Message
 {
     /**
      * Identifies the element in the original source .proto file. This field
@@ -28,7 +28,7 @@ final class Annotation extends \Google\Protobuf\Internal\Message
      *
      * Generated from protobuf field <code>optional string source_file = 2;</code>
      */
-    private $source_file = '';
+    protected $source_file = '';
     private $has_source_file = false;
     /**
      * Identifies the starting offset in bytes in the generated code
@@ -36,7 +36,7 @@ final class Annotation extends \Google\Protobuf\Internal\Message
      *
      * Generated from protobuf field <code>optional int32 begin = 3;</code>
      */
-    private $begin = 0;
+    protected $begin = 0;
     private $has_begin = false;
     /**
      * Identifies the ending offset in bytes in the generated code that
@@ -45,7 +45,7 @@ final class Annotation extends \Google\Protobuf\Internal\Message
      *
      * Generated from protobuf field <code>optional int32 end = 4;</code>
      */
-    private $end = 0;
+    protected $end = 0;
     private $has_end = false;
 
     /**

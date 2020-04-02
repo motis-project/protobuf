@@ -117,7 +117,7 @@ jspb.utils.splitInt64 = function(value) {
 
 
 /**
- * Convers a signed Javascript integer into zigzag format, splits it into two
+ * Converts a signed Javascript integer into zigzag format, splits it into two
  * 32-bit halves, and stores it in the temp values above.
  * @param {number} value The number to split.
  */
@@ -255,8 +255,25 @@ jspb.utils.splitFloat64 = function(value) {
     return;
   }
 
-  var exp = Math.floor(Math.log(value) / Math.LN2);
-  if (exp == 1024) exp = 1023;
+  // Compute the least significant exponent needed to represent the magnitude of
+  // the value by repeadly dividing/multiplying by 2 until the magnitude
+  // crosses 2. While tempting to use log math to find the exponent, at the
+  // bounadaries of precision, the result can be off by one.
+  var maxDoubleExponent = 1023;
+  var minDoubleExponent = -1022;
+  var x = value;
+  var exp = 0;
+  if (x >= 2) {
+    while (x >= 2 && exp < maxDoubleExponent) {
+      exp++;
+      x = x / 2;
+    }
+  } else {
+    while (x < 1 && exp > minDoubleExponent) {
+      x = x * 2;
+      exp--;
+    }
+  }
   var mant = value * Math.pow(2, -exp);
 
   var mantHigh = (mant * jspb.BinaryConstants.TWO_TO_20) & 0xFFFFF;
@@ -296,7 +313,7 @@ jspb.utils.splitHash64 = function(hash) {
  * @return {number}
  */
 jspb.utils.joinUint64 = function(bitsLow, bitsHigh) {
-  return bitsHigh * jspb.BinaryConstants.TWO_TO_32 + bitsLow;
+  return bitsHigh * jspb.BinaryConstants.TWO_TO_32 + (bitsLow >>> 0);
 };
 
 
@@ -322,6 +339,33 @@ jspb.utils.joinInt64 = function(bitsLow, bitsHigh) {
   return sign ? -result : result;
 };
 
+/**
+ * Converts split 64-bit values from standard two's complement encoding to
+ * zig-zag encoding. Invokes the provided function to produce final result.
+ *
+ * @param {number} bitsLow
+ * @param {number} bitsHigh
+ * @param {function(number, number): T} convert Conversion function to produce
+ *     the result value, takes parameters (lowBits, highBits).
+ * @return {T}
+ * @template T
+ */
+jspb.utils.toZigzag64 = function(bitsLow, bitsHigh, convert) {
+  // See
+  // https://engdoc.corp.google.com/eng/howto/protocolbuffers/developerguide/encoding.shtml?cl=head#types
+  // 64-bit math is: (n << 1) ^ (n >> 63)
+  //
+  // To do this in 32 bits, we can get a 32-bit sign-flipping mask from the
+  // high word.
+  // Then we can operate on each word individually, with the addition of the
+  // "carry" to get the most significant bit from the low word into the high
+  // word.
+  var signFlipMask = bitsHigh >> 31;
+  bitsHigh = (bitsHigh << 1 | bitsLow >>> 31) ^ signFlipMask;
+  bitsLow = (bitsLow << 1) ^ signFlipMask;
+  return convert(bitsLow, bitsHigh);
+};
+
 
 /**
  * Joins two 32-bit values into a 64-bit unsigned integer and applies zigzag
@@ -331,21 +375,33 @@ jspb.utils.joinInt64 = function(bitsLow, bitsHigh) {
  * @return {number}
  */
 jspb.utils.joinZigzag64 = function(bitsLow, bitsHigh) {
-  // Extract the sign bit and shift right by one.
-  var sign = bitsLow & 1;
-  bitsLow = ((bitsLow >>> 1) | (bitsHigh << 31)) >>> 0;
-  bitsHigh = bitsHigh >>> 1;
+  return jspb.utils.fromZigzag64(bitsLow, bitsHigh, jspb.utils.joinInt64);
+};
 
-  // Increment the split value if the sign bit was set.
-  if (sign) {
-    bitsLow = (bitsLow + 1) >>> 0;
-    if (bitsLow == 0) {
-      bitsHigh = (bitsHigh + 1) >>> 0;
-    }
-  }
 
-  var result = jspb.utils.joinUint64(bitsLow, bitsHigh);
-  return sign ? -result : result;
+/**
+ * Converts split 64-bit values from zigzag encoding to standard two's
+ * complement encoding. Invokes the provided function to produce final result.
+ *
+ * @param {number} bitsLow
+ * @param {number} bitsHigh
+ * @param {function(number, number): T} convert Conversion function to produce
+ *     the result value, takes parameters (lowBits, highBits).
+ * @return {T}
+ * @template T
+ */
+jspb.utils.fromZigzag64 = function(bitsLow, bitsHigh, convert) {
+  // 64 bit math is:
+  //   signmask = (zigzag & 1) ? -1 : 0;
+  //   twosComplement = (zigzag >> 1) ^ signmask;
+  //
+  // To work with 32 bit, we can operate on both but "carry" the lowest bit
+  // from the high word by shifting it up 31 bits to be the most significant bit
+  // of the low word.
+  var signFlipMask = -(bitsLow & 1);
+  bitsLow = ((bitsLow >>> 1) | (bitsHigh << 31)) ^ signFlipMask;
+  bitsHigh = (bitsHigh >>> 1) ^ signFlipMask;
+  return convert(bitsLow, bitsHigh);
 };
 
 
@@ -945,7 +1001,7 @@ jspb.utils.debugBytesToTextFormat = function(byteSource) {
  * @return {string} Stringified scalar for text format.
  */
 jspb.utils.debugScalarToTextFormat = function(scalar) {
-  if (goog.isString(scalar)) {
+  if (typeof scalar === 'string') {
     return goog.string.quote(scalar);
   } else {
     return scalar.toString();

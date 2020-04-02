@@ -13,7 +13,7 @@ use Google\Protobuf\Internal\GPBUtil;
 /**
  * Generated from protobuf message <code>google.protobuf.SourceCodeInfo.Location</code>
  */
-final class Location extends \Google\Protobuf\Internal\Message
+class Location extends \Google\Protobuf\Internal\Message
 {
     /**
      * Identifies which part of the FileDescriptorProto was defined at this
@@ -93,12 +93,12 @@ final class Location extends \Google\Protobuf\Internal\Message
      *
      * Generated from protobuf field <code>optional string leading_comments = 3;</code>
      */
-    private $leading_comments = '';
+    protected $leading_comments = '';
     private $has_leading_comments = false;
     /**
      * Generated from protobuf field <code>optional string trailing_comments = 4;</code>
      */
-    private $trailing_comments = '';
+    protected $trailing_comments = '';
     private $has_trailing_comments = false;
     /**
      * Generated from protobuf field <code>repeated string leading_detached_comments = 6;</code>

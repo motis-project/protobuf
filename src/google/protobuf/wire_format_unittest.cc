@@ -33,6 +33,10 @@
 //  Sanjay Ghemawat, Jeff Dean, and others.
 
 #include <google/protobuf/wire_format.h>
+
+#include <google/protobuf/stubs/logging.h>
+#include <google/protobuf/stubs/common.h>
+#include <google/protobuf/stubs/logging.h>
 #include <google/protobuf/test_util.h>
 #include <google/protobuf/unittest.pb.h>
 #include <google/protobuf/unittest_mset.pb.h>
@@ -40,11 +44,9 @@
 #include <google/protobuf/unittest_proto3_arena.pb.h>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/descriptor.h>
-
-#include <google/protobuf/stubs/logging.h>
-#include <google/protobuf/stubs/common.h>
-#include <google/protobuf/stubs/logging.h>
+#include <google/protobuf/wire_format_lite.h>
 #include <google/protobuf/testing/googletest.h>
 #include <gtest/gtest.h>
 #include <google/protobuf/stubs/casts.h>
@@ -961,8 +963,7 @@ class Proto3PrimitiveRepeatedWireFormatTest : public ::testing::Test {
     message->add_repeated_float(1.0);
     message->add_repeated_double(1.0);
     message->add_repeated_bool(true);
-    message->add_repeated_nested_enum(
-        proto3_arena_unittest::TestAllTypes_NestedEnum_FOO);
+    message->add_repeated_nested_enum(proto3_arena_unittest::TestAllTypes::FOO);
   }
 
   template <class Proto>
@@ -980,7 +981,7 @@ class Proto3PrimitiveRepeatedWireFormatTest : public ::testing::Test {
     EXPECT_EQ(1.0, message.repeated_float(0));
     EXPECT_EQ(1.0, message.repeated_double(0));
     EXPECT_EQ(true, message.repeated_bool(0));
-    EXPECT_EQ(proto3_arena_unittest::TestAllTypes_NestedEnum_FOO,
+    EXPECT_EQ(proto3_arena_unittest::TestAllTypes::FOO,
               message.repeated_nested_enum(0));
   }
 
