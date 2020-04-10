@@ -19,15 +19,6 @@ endif()
 # Project
 project(protobuf C CXX)
 
-# Add c++11 flags
-if (CYGWIN)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
-else()
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_EXTENSIONS OFF)
-endif()
-
 # The Intel compiler isn't able to deal with noinline member functions of
 # template classses defined in headers.  As such it spams the output with
 #   warning #2196: routine is both "inline" and "noinline"
