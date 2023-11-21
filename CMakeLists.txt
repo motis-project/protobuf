@@ -27,8 +27,8 @@ if(protobuf_DEPRECATED_CMAKE_SUBDIRECTORY_USAGE)
 endif()
 
 # Options
-option(protobuf_INSTALL "Install protobuf binaries and files" ON)
-option(protobuf_BUILD_TESTS "Build tests" ON)
+option(protobuf_INSTALL "Install protobuf binaries and files" OFF)
+option(protobuf_BUILD_TESTS "Build tests" OFF)
 option(protobuf_BUILD_CONFORMANCE "Build conformance tests" OFF)
 option(protobuf_BUILD_EXAMPLES "Build examples" OFF)
 option(protobuf_BUILD_PROTOBUF_BINARIES "Build protobuf libraries and protoc compiler" ON)
