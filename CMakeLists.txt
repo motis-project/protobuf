@@ -46,8 +46,6 @@ option(protobuf_BUILD_SHARED_LIBS "Build Shared Libraries" ${protobuf_BUILD_SHAR
 include(CMakeDependentOption)
 cmake_dependent_option(protobuf_MSVC_STATIC_RUNTIME "Link static runtime libraries" ON
   "NOT protobuf_BUILD_SHARED_LIBS" OFF)
-set(protobuf_WITH_ZLIB_DEFAULT ON)
-option(protobuf_WITH_ZLIB "Build with zlib support" ${protobuf_WITH_ZLIB_DEFAULT})
 set(protobuf_DEBUG_POSTFIX "d"
   CACHE STRING "Default debug postfix")
 mark_as_advanced(protobuf_DEBUG_POSTFIX)
@@ -159,28 +157,6 @@ else()
   set(_protobuf_INSTALL_SUPPORTED_FROM_MODULE ON)
 endif()
 
-set(_protobuf_FIND_ZLIB)
-if (protobuf_WITH_ZLIB)
-  find_package(ZLIB)
-  if (ZLIB_FOUND)
-    set(HAVE_ZLIB 1)
-    # FindZLIB module define ZLIB_INCLUDE_DIRS variable
-    # Set ZLIB_INCLUDE_DIRECTORIES for compatible
-    set(ZLIB_INCLUDE_DIRECTORIES ${ZLIB_INCLUDE_DIRECTORIES} ${ZLIB_INCLUDE_DIRS})
-    # Using imported target if exists
-    if (TARGET ZLIB::ZLIB)
-      set(ZLIB_LIBRARIES ZLIB::ZLIB)
-      set(_protobuf_FIND_ZLIB "if(NOT ZLIB_FOUND)\n  find_package(ZLIB)\nendif()")
-    endif (TARGET ZLIB::ZLIB)
-  else (ZLIB_FOUND)
-    set(HAVE_ZLIB 0)
-    # Explicitly set these to empty (override NOT_FOUND) so cmake doesn't
-    # complain when we use them later.
-    set(ZLIB_INCLUDE_DIRECTORIES)
-    set(ZLIB_LIBRARIES)
-  endif (ZLIB_FOUND)
-endif (protobuf_WITH_ZLIB)
-
 # We need to link with libatomic on systems that do not have builtin atomics, or
 # don't have builtin support for 8 byte atomics
 set(protobuf_LINK_LIBATOMIC false)
@@ -280,7 +256,6 @@ else (MSVC)
 endif (MSVC)
 
 include_directories(
-  ${ZLIB_INCLUDE_DIRECTORIES}
   ${protobuf_BINARY_DIR}
   ${protobuf_SOURCE_DIR}/src)
 
