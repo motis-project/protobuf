@@ -42,5 +42,8 @@ set_target_properties(libprotobuf PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON
 )
 add_library(protobuf::libprotobuf ALIAS libprotobuf)
+if (CMAKE_OSX_ARCHITECTURES)
+  set_target_properties(libprotobuf PROPERTIES OSX_ARCHITECTURES "x86_64;arm64")
+endif()
 
 target_link_libraries(libprotobuf PRIVATE utf8_validity)

@@ -16,22 +16,19 @@ add_library (utf8_range STATIC
   range2-neon.c
   range2-sse.c
 )
+if (CMAKE_OSX_ARCHITECTURES)
+  set_target_properties(utf8_range PROPERTIES OSX_ARCHITECTURES "x86_64;arm64")
+endif()
 
 ##
 # A heavier-weight C++ wrapper that supports Abseil.
 add_library (utf8_validity STATIC utf8_validity.cc)
 
 # Load Abseil dependency.
-if (NOT TARGET absl::strings)
-  if (NOT ABSL_ROOT_DIR)
-    find_package(absl REQUIRED CONFIG)
-  else ()
-    set(ABSL_ENABLE_INSTALL ${utf8_range_ENABLE_INSTALL})
-    set(ABSL_PROPAGATE_CXX_STD ON)
-    add_subdirectory(${ABSL_ROOT_DIR} third_party/abseil-cpp)
-  endif ()
-endif ()
 target_link_libraries(utf8_validity PUBLIC absl::strings)
+if (CMAKE_OSX_ARCHITECTURES)
+  set_target_properties(utf8_validity PROPERTIES OSX_ARCHITECTURES "x86_64;arm64")
+endif()
 
 # Configure tests.
 if (utf8_range_ENABLE_TESTS)

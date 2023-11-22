@@ -35,3 +35,6 @@ set_target_properties(libprotoc PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON
 )
 add_library(protobuf::libprotoc ALIAS libprotoc)
+if (CMAKE_OSX_ARCHITECTURES)
+  set_target_properties(libprotoc PROPERTIES OSX_ARCHITECTURES "x86_64;arm64")
+endif()
