@@ -5,4 +5,4 @@
 [abseil-cpp]
   url=git@github.com:motis-project/abseil-cpp.git
   branch=master
-  commit=f2b3825f36e37fddd47c5c395096e9b1e99eca12
+  commit=ba5240842d352b4b67a32092453a2fe5fe53a62e
