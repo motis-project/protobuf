@@ -1,7 +1,7 @@
-[zlib]
-  url=git@github.com:motis-project/zlib.git
-  branch=master
-  commit=fe8e13ffca867612951bc6baf114e5ac8b00f305
+[zlib-ng]
+  url=git@github.com:motis-project/zlib-ng.git
+  branch=develop
+  commit=68ab3e2d80253ec5dc3c83691d9ff70477b32cd3
 [abseil-cpp]
   url=git@github.com:motis-project/abseil-cpp.git
   branch=master
