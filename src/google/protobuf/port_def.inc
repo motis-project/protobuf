@@ -678,14 +678,14 @@ static_assert(PROTOBUF_ABSL_MIN(20230125, 3),
 #  endif
 #endif
 
-#ifdef PROTOBUF_ASAN
-#include <sanitizer/asan_interface.h>
-#define PROTOBUF_POISON_MEMORY_REGION(p, n) ASAN_POISON_MEMORY_REGION(p, n)
-#define PROTOBUF_UNPOISON_MEMORY_REGION(p, n) ASAN_UNPOISON_MEMORY_REGION(p, n)
-#else  // PROTOBUF_ASAN
+// #ifdef PROTOBUF_ASAN
+// #include <sanitizer/asan_interface.h>
+// #define PROTOBUF_POISON_MEMORY_REGION(p, n) ASAN_POISON_MEMORY_REGION(p, n)
+// #define PROTOBUF_UNPOISON_MEMORY_REGION(p, n) ASAN_UNPOISON_MEMORY_REGION(p, n)
+// #else  // PROTOBUF_ASAN
 #define PROTOBUF_POISON_MEMORY_REGION(p, n)
 #define PROTOBUF_UNPOISON_MEMORY_REGION(p, n)
-#endif  // PROTOBUF_ASAN
+// #endif  // PROTOBUF_ASAN
 
 #ifdef PROTOBUF_TSAN_READ
 #error PROTOBUF_TSAN_READ was previously defined
